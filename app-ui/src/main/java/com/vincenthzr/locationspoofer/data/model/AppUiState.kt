@@ -85,6 +85,12 @@ data class AppState(
     /** 非空即触发"确认重启应用"弹窗；内容来自 lsposedManager.getHookedApps() */
     val hookedAppsToRestart: List<AppInfoItem>? = null,
     val isLSPosedActive: Boolean = false,
+    /**
+     * true 表示 Xposed 服务绑定仍在等待中：XposedServiceHelper 的绑定是异步的，
+     * 重开 App 时常落后于初始化完成。绑定成功或宽限期超时前，
+     * 不把"LSPosed 未激活"当作最终结论展示给用户，避免主界面闪现模块未加载提示。
+     */
+    val isLsposedCheckPending: Boolean = true,
     val longitudeInput: String = "",
     val latitudeInput: String = "",
     val showCoordinateError: Boolean = false,

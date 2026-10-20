@@ -222,7 +222,8 @@ fun MainScreen(
     isDark: Boolean
 ) {
     when {
-        uiState.isInitializing -> InitializingScreen(isDark)
+        // 初始化中，或 Xposed 服务绑定尚在宽限期内：继续显示加载页，不提前判定模块未激活
+        uiState.isInitializing || uiState.isLsposedCheckPending -> InitializingScreen(isDark)
         !uiState.isLanguageSet -> LanguageSelectionScreen(viewModel)
         !uiState.hasRootAccess -> com.vincenthzr.locationspoofer.ui.screen.DataCollectionAssistScreen(
             viewModel = viewModel,

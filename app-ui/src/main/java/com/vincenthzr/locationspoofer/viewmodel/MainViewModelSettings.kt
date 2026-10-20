@@ -21,14 +21,19 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.sample
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import com.vincenthzr.locationspoofer.viewmodel.MainViewModel.ClusterData
 
 // MainViewModel 的设置、语言、Root 方案、搜索、API Key 与坐标系相关扩展函数
+
+/** XposedServiceHelper 服务绑定的等待宽限：超时仍未绑定才认定模块未激活 */
+private const val LSPOSED_BIND_GRACE_MS = 5_000L
 
 // 初始化
 @OptIn(kotlinx.coroutines.FlowPreview::class)
@@ -105,10 +110,21 @@ internal fun MainViewModel.initialize() {
             _uiState.update {
                 it.copy(
                     isLSPosedActive = active,
+                    // 绑定成功即有结论，结束宽限；此后的掉线事件保持原值，
+                    // 让"LSPosed 未激活"阻断页立即出现
+                    isLsposedCheckPending = if (active) false else it.isLsposedCheckPending,
                     hookedApps = if (active) lsposedManager.getHookedApps(context) else emptyList()
                 )
             }
         }
+    }
+
+    // XposedServiceHelper 的服务绑定是异步的，重开 App 时常落后于初始化完成。
+    // 宽限期内保持加载页，避免闪现"LSPosed 模块未激活"；超时仍未绑定才判定真的未激活。
+    viewModelScope.launch {
+        withTimeoutOrNull(LSPOSED_BIND_GRACE_MS) {
+            XposedModuleStatus.isModuleActive.first { it }
+        } ?: _uiState.update { it.copy(isLsposedCheckPending = false) }
     }
 
     viewModelScope.launch {
